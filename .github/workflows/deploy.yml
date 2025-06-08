@@ -2,15 +2,6 @@ name: Deploy CloudFormation Stack
 
 on:
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Deployment environment'
-        required: true
-        default: 'prod'
-        type: choice
-        options:
-          - prod
-          - local
 
 jobs:
   deploy:
@@ -34,7 +25,6 @@ jobs:
         run: chmod +x deploy.sh package.sh
 
       - name: Deploy CloudFormation stack
-        run: ./deploy.sh
+        run: ./deploy.sh --environment prod
         env:
           AWS_REGION: eu-west-2
-          ENVIRONMENT: ${{ github.event.inputs.environment }}
