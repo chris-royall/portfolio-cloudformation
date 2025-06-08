@@ -72,7 +72,9 @@ This approach provides several benefits:
 
 ## Deployment
 
-Deploy the CloudFormation stack:
+### Manual Deployment
+
+Deploy the CloudFormation stack manually:
 ```bash
 # Make the scripts executable
 chmod +x deploy.sh package.sh
@@ -87,6 +89,14 @@ The `deploy.sh` script handles the complete deployment process:
 3. Uploads Lambda code to the S3 bucket
 4. Deploys the main CloudFormation stack with all resources
 5. Verifies the deployment status
+
+### GitHub Actions Deployment
+
+This project is configured for manual deployment using GitHub Actions. The workflow:
+1. Checks out the code
+2. Sets up AWS credentials using OIDC
+3. Packages Lambda functions
+4. Deploys the CloudFormation stack
 
 ## API Endpoints
 
