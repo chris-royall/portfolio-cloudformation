@@ -225,7 +225,7 @@ Resources:
       ApiId: !Ref PortfolioApi
       DomainName: !Ref ExistingApiDomainName
       Stage: "$default"
-      ApiMappingKey: v1
+      ApiMappingKey: !Sub "v1-${Environment}"
       
   LambdaSESPolicy:
     Type: AWS::IAM::Policy
@@ -248,7 +248,3 @@ Outputs:
     Value: !Ref LambdaCodeBucket
     Export:
       Name: !Sub ${AWS::StackName}-LambdaCodeBucketName
-            
-  ApiId:
-    Description: 'API Gateway ID'
-    Value: !Ref PortfolioApi

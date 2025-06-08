@@ -79,9 +79,11 @@ Deploy the CloudFormation stack manually:
 # Make the scripts executable
 chmod +x deploy.sh package.sh
 
-# Deploy the stack
+# Deploy to local environment (default)
 ./deploy.sh
-```
+
+# Deploy to production environment
+./deploy.sh --environment prod
 
 The `deploy.sh` script handles the complete deployment process:
 1. Packages Lambda functions into ZIP files using `package.sh`
@@ -90,25 +92,35 @@ The `deploy.sh` script handles the complete deployment process:
 4. Deploys the main CloudFormation stack with all resources
 5. Verifies the deployment status
 
+Each environment (local or prod) will have its own unique API endpoint:
+- Local: `https://api.chrisroyall.com/v1-local/...`
+- Production: `https://api.chrisroyall.com/v1-prod/...`
+
+This allows both environments to coexist using the same custom domain name.
+
 ### GitHub Actions Deployment
 
 This project is configured for manual deployment using GitHub Actions. The workflow:
 1. Checks out the code
 2. Sets up AWS credentials using OIDC
 3. Packages Lambda functions
-4. Deploys the CloudFormation stack
+4. Deploys the CloudFormation stack to prod environment
 
 ## API Endpoints
 
 After deployment, the following endpoints will be available:
 
-- **Contact Form**: `https://api.chrisroyall.com/v1/contact`
+- **Contact Form**:
+  - Local: `https://api.chrisroyall.com/v1-local/contact`
+  - Prod: `https://api.chrisroyall.com/v1-prod/contact`
   - Method: POST
   - Required fields: email, message
   - Optional fields: name
   - Response: 200 OK on success, appropriate error codes otherwise
 
-- **Link Selection**: `https://api.chrisroyall.com/v1/link`
+- **Link Selection**:
+  - Local: `https://api.chrisroyall.com/v1-local/link`
+  - Prod: `https://api.chrisroyall.com/v1-prod/link`
   - Method: POST
   - Required fields: buttonClicked
   - Response: 200 OK on success, appropriate error codes otherwise

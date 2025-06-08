@@ -10,6 +10,30 @@ TEMPLATE_FILE="template.yaml"
 ENVIRONMENT="local"
 DOMAIN_NAME="api.chrisroyall.com"
 
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --environment)
+      ENVIRONMENT="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Usage: $0 [--environment local|prod] [--region REGION] [--domain DOMAIN_NAME]"
+      exit 1
+      ;;
+  esac
+done
+
+# Add Environment to Stack Name
+STACK_NAME="$STACK_NAME-$ENVIRONMENT"
+
+# Validate environment value
+if [[ "$ENVIRONMENT" != "local" && "$ENVIRONMENT" != "prod" ]]; then
+  echo "Error: Environment must be either 'local' or 'prod'"
+  exit 1
+fi
+
 # Check if template files exists
 if [ ! -f "$BUCKET_TEMPLATE_FILE" ]; then
     echo "Error: Bucket template file '$BUCKET_TEMPLATE_FILE' not found."
@@ -40,7 +64,7 @@ fi
 # Deploy the S3 bucket
 echo "Deploying S3 bucket..."
 aws cloudformation deploy \
-  --stack-name $STACK_NAME-$ENVIRONMENT \
+  --stack-name $STACK_NAME \
   --template-file $BUCKET_TEMPLATE_FILE \
   --region $REGION \
   --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
@@ -48,7 +72,7 @@ aws cloudformation deploy \
     Environment=$ENVIRONMENT
 
 # Get the S3 bucket name from the stack outputs
-S3_BUCKET=$(aws cloudformation describe-stacks --stack-name $STACK_NAME-$ENVIRONMENT --region $REGION --query "Stacks[0].Outputs[?OutputKey=='LambdaCodeBucketName'].OutputValue" --output text)
+S3_BUCKET=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION --query "Stacks[0].Outputs[?OutputKey=='LambdaCodeBucketName'].OutputValue" --output text)
 
 # Upload Lambda code to S3
 echo "Uploading Lambda code to S3..."
@@ -71,14 +95,14 @@ aws s3 ls s3://$S3_BUCKET/link-selection.zip --region $REGION || {
 echo "----------------------------------------"
 echo "Deploying CloudFormation stack"
 echo "Template file: $TEMPLATE_FILE"
-echo "Stack name: $STACK_NAME-$ENVIRONMENT"
+echo "Stack name: $STACK_NAME"
 echo "Region: $REGION"
 echo "Environment: $ENVIRONMENT"
 
 # Deploy the stack with all resources
 echo "Deploying stack..."
 aws cloudformation deploy \
-  --stack-name $STACK_NAME-$ENVIRONMENT \
+  --stack-name $STACK_NAME \
   --template-file $TEMPLATE_FILE \
   --region $REGION \
   --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
@@ -89,7 +113,7 @@ aws cloudformation deploy \
 # Check deployment status
 if [ "$?" -eq 0 ]; then
     echo "Checking stack status..."
-    aws cloudformation describe-stacks --stack-name $STACK_NAME-$ENVIRONMENT --region $REGION --query "Stacks[0].StackStatus" --output text
+    aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION --query "Stacks[0].StackStatus" --output text
     exit 0
 else
     echo "----------------------------------------"
