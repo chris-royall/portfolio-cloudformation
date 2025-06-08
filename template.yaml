@@ -1,0 +1,254 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Portfolio infrastructure template with HTTP API Gateway and Lambda functions'
+
+Parameters:
+  Environment:
+    Description: Environment name
+    Type: String
+    Default: local
+    AllowedValues:
+      - local
+      - prod
+  
+  ExistingApiDomainName:
+    Type: String
+    Description: Existing API custom domain name
+    Default: api.chrisroyall.com
+    
+  ThrottlingRateLimit:
+    Type: Number
+    Description: API throttling rate limit (requests per second)
+    Default: 10
+    
+  ThrottlingBurstLimit:
+    Type: Number
+    Description: API throttling burst limit
+    Default: 20
+    
+Resources:
+        
+  # S3 Bucket for Lambda Code
+  LambdaCodeBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-lambda-code-bucket
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Lambda IAM Role - shared by both Lambda functions
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-lambda-role
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Contact Form Function
+  ContactFormFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: LambdaCodeBucket
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-contact-form
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.9
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: contact-form.zip
+      Timeout: 10
+      MemorySize: 128
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-contact-form
+        - Key: Environment
+          Value: !Ref Environment
+      # Add reserved concurrency to prevent function from being overwhelmed
+      ReservedConcurrentExecutions: 5
+
+  # Contact Form CloudWatch Log Group
+  ContactFormLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${ContactFormFunction}
+      RetentionInDays: 7
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-contact-form-logs
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Link Selection Function
+  LinkSelectionFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: LambdaCodeBucket
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-link-selection
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.9
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: link-selection.zip
+      Timeout: 10
+      MemorySize: 128
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-link-selection
+        - Key: Environment
+          Value: !Ref Environment
+      # Add reserved concurrency to prevent function from being overwhelmed
+      ReservedConcurrentExecutions: 5
+
+  # Link Selection CloudWatch Log Group
+  LinkSelectionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${LinkSelectionFunction}
+      RetentionInDays: 7
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-link-selection-logs
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Combined API for both functions
+  PortfolioApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub portfolio-api-${Environment}
+      ProtocolType: HTTP
+      DisableExecuteApiEndpoint: false
+      Description: HTTP API for Portfolio Lambda Functions
+      Tags:
+        Name: !Sub portfolio-api-${Environment}
+        Environment: !Ref Environment
+
+  # API Stage with throttling
+  PortfolioApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    DependsOn: [ContactFormRoute, LinkSelectionRoute]  # Ensure routes exist first
+    Properties:
+      ApiId: !Ref PortfolioApi
+      StageName: "$default"
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingRateLimit: !Ref ThrottlingRateLimit
+        ThrottlingBurstLimit: !Ref ThrottlingBurstLimit
+      RouteSettings:
+        # Route-specific throttling for contact endpoint
+        'POST /contact':
+          ThrottlingRateLimit: 5
+          ThrottlingBurstLimit: 10
+        # Route-specific throttling for link endpoint
+        'POST /link':
+          ThrottlingRateLimit: 5
+          ThrottlingBurstLimit: 10
+      Tags:
+        Name: !Sub portfolio-api-stage-${Environment}
+        Environment: !Ref Environment
+
+  # Contact Form Route
+  ContactFormRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref PortfolioApi
+      RouteKey: 'POST /contact'
+      Target: !Sub integrations/${ContactFormIntegration}
+
+  # Contact Form Integration
+  ContactFormIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref PortfolioApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ContactFormFunction.Arn}/invocations
+      PayloadFormatVersion: '2.0'
+      IntegrationMethod: POST
+
+  # Contact Form Lambda Permission
+  ContactFormPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ContactFormFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PortfolioApi}/*/POST/contact
+
+  # Link Selection Route
+  LinkSelectionRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref PortfolioApi
+      RouteKey: 'POST /link'
+      Target: !Sub integrations/${LinkSelectionIntegration}
+
+  # Link Selection Integration
+  LinkSelectionIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref PortfolioApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LinkSelectionFunction.Arn}/invocations
+      PayloadFormatVersion: '2.0'
+      IntegrationMethod: POST
+
+  # Link Selection Lambda Permission
+  LinkSelectionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LinkSelectionFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PortfolioApi}/*/POST/link
+      
+  # API Mapping to existing custom domain
+  PortfolioApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    DependsOn: PortfolioApiStage
+    Properties:
+      ApiId: !Ref PortfolioApi
+      DomainName: !Ref ExistingApiDomainName
+      Stage: "$default"
+      ApiMappingKey: v1
+      
+  LambdaSESPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LambdaSESPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - ses:SendEmail
+              - ses:SendRawEmail
+            Resource: '*'
+      Roles:
+        - !Ref LambdaExecutionRole
+        
+Outputs:
+  LambdaCodeBucketName:
+    Description: Name of the S3 bucket containing Lambda code
+    Value: !Ref LambdaCodeBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-LambdaCodeBucketName
+            
+  ApiId:
+    Description: 'API Gateway ID'
+    Value: !Ref PortfolioApi
