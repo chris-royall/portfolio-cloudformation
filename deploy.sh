@@ -76,16 +76,16 @@ S3_BUCKET=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region
 
 # Upload Lambda code to S3
 echo "Uploading Lambda code to S3..."
-aws s3 cp lambda/contact-form.zip s3://$S3_BUCKET/ --region $REGION
-aws s3 cp lambda/link-selection.zip s3://$S3_BUCKET/ --region $REGION
+aws s3 cp lambda/contact-form.zip s3://$S3_BUCKET/ --region $REGION --no-progress
+aws s3 cp lambda/link-selection.zip s3://$S3_BUCKET/ --region $REGION --no-progress
 
 # Verify the files were uploaded successfully
 echo "Verifying Lambda code in S3..."
-aws s3 ls s3://$S3_BUCKET/contact-form.zip --region $REGION || {
+aws s3 ls s3://$S3_BUCKET/contact-form.zip --region $REGION > /dev/null 2>&1 || {
     echo "Error: contact-form.zip not found in S3 bucket"
     exit 1
 }
-aws s3 ls s3://$S3_BUCKET/link-selection.zip --region $REGION || {
+aws s3 ls s3://$S3_BUCKET/link-selection.zip --region $REGION > /dev/null 2>&1 || {
     echo "Error: link-selection.zip not found in S3 bucket"
     exit 1
 }
