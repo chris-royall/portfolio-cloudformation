@@ -76,8 +76,8 @@ S3_BUCKET=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region
 
 # Upload Lambda code to S3
 echo "Uploading Lambda code to S3..."
-aws s3 cp lambda/contact-form.zip s3://$S3_BUCKET/ --region $REGION --no-progress
-aws s3 cp lambda/link-selection.zip s3://$S3_BUCKET/ --region $REGION --no-progress
+aws s3 cp lambda/contact-form.zip s3://$S3_BUCKET/ --region $REGION --no-progress > /dev/null 2>&1
+aws s3 cp lambda/link-selection.zip s3://$S3_BUCKET/ --region $REGION --no-progress > /dev/null 2>&1
 
 # Verify the files were uploaded successfully
 echo "Verifying Lambda code in S3..."
