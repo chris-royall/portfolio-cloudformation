@@ -1,5 +1,7 @@
 # Portfolio CloudFormation Project
 
+[![Deploy CloudFormation Stack](https://github.com/chris-royall/portfolio-cloudformation/actions/workflows/deploy.yml/badge.svg)](https://github.com/chris-royall/portfolio-cloudformation/actions/workflows/deploy.yml)
+
 This project contains CloudFormation templates and scripts to deploy AWS resources for a portfolio website backend.
 
 ## Table of Contents
