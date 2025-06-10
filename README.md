@@ -3,6 +3,7 @@
 [![Deploy CloudFormation Stack](https://github.com/chris-royall/portfolio-cloudformation/actions/workflows/deploy.yml/badge.svg)](https://github.com/chris-royall/portfolio-cloudformation/actions/workflows/deploy.yml)
 
 This project contains CloudFormation templates and scripts to deploy AWS resources for a portfolio website backend.
+The frontend application for this portfolio is available at [https://github.com/chris-royall/portfolio-reactapp](https://github.com/chris-royall/portfolio-reactapp)
 
 ## Table of Contents
 - [Project Structure](#project-structure)
@@ -32,6 +33,8 @@ portfolio-cloudformation/
 ```
 
 ## Architecture
+
+![Architecture Diagram](portfolio-cloudformation_diagram.drawio.png)
 
 This project deploys the following AWS resources:
 
@@ -80,12 +83,15 @@ Deploy the CloudFormation stack manually:
 ```bash
 # Make the scripts executable
 chmod +x deploy.sh package.sh
-
+```
+```bash
 # Deploy to local environment (default)
 ./deploy.sh
-
+```
+```bash
 # Deploy to production environment
 ./deploy.sh --environment prod
+```
 
 The `deploy.sh` script handles the complete deployment process:
 1. Packages Lambda functions into ZIP files using `package.sh`
