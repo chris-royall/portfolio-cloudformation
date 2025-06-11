@@ -135,6 +135,18 @@ Resources:
       ProtocolType: HTTP
       DisableExecuteApiEndpoint: false
       Description: HTTP API for Portfolio Lambda Functions
+      CorsConfiguration:
+        AllowHeaders:
+          - Content-Type
+        AllowMethods:
+          - POST
+        AllowOrigins:
+          - 'http://localhost:5173'
+          - 'https://chrisroyall.com'
+          - 'https://www.chrisroyall.com'
+        ExposeHeaders:
+          - Content-Type
+        MaxAge: 300
       Tags:
         Name: !Sub portfolio-api-${Environment}
         Environment: !Ref Environment
