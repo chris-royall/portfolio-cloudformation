@@ -5,6 +5,7 @@
 # Default values
 REGION="eu-west-2"
 STACK_NAME="portfolio"
+BUCKET_STACK_NAME="portfolio-bucket"
 BUCKET_TEMPLATE_FILE="bucket-template.yaml"
 TEMPLATE_FILE="template.yaml"
 ENVIRONMENT="local"
@@ -25,8 +26,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Add Environment to Stack Name
+# Add Environment to Stack Names
 STACK_NAME="$STACK_NAME-$ENVIRONMENT"
+BUCKET_STACK_NAME="$BUCKET_STACK_NAME-$ENVIRONMENT"
 
 # Validate environment value
 if [[ "$ENVIRONMENT" != "local" && "$ENVIRONMENT" != "prod" ]]; then
@@ -64,7 +66,7 @@ fi
 # Deploy the S3 bucket
 echo "Deploying S3 bucket..."
 aws cloudformation deploy \
-  --stack-name $STACK_NAME \
+  --stack-name $BUCKET_STACK_NAME \
   --template-file $BUCKET_TEMPLATE_FILE \
   --region $REGION \
   --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
@@ -72,7 +74,7 @@ aws cloudformation deploy \
     Environment=$ENVIRONMENT
 
 # Get the S3 bucket name from the stack outputs
-S3_BUCKET=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION --query "Stacks[0].Outputs[?OutputKey=='LambdaCodeBucketName'].OutputValue" --output text)
+S3_BUCKET=$(aws cloudformation describe-stacks --stack-name $BUCKET_STACK_NAME --region $REGION --query "Stacks[0].Outputs[?OutputKey=='LambdaCodeBucketName'].OutputValue" --output text)
 
 # Upload Lambda code to S3
 echo "Uploading Lambda code to S3..."
@@ -108,7 +110,8 @@ aws cloudformation deploy \
   --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
   --parameter-overrides \
     Environment=$ENVIRONMENT \
-    ExistingApiDomainName=$DOMAIN_NAME
+    ExistingApiDomainName=$DOMAIN_NAME \
+    BucketStackName=$BUCKET_STACK_NAME
 
 # Check deployment status
 if [ "$?" -eq 0 ]; then
@@ -117,6 +120,6 @@ if [ "$?" -eq 0 ]; then
     exit 0
 else
     echo "----------------------------------------"
-    echo "Stack '$STACK_NAME-$ENVIRONMENT' deployment failed."
+    echo "Stack '$STACK_NAME' deployment failed."
     exit 1
 fi

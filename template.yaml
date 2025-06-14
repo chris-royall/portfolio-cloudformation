@@ -25,20 +25,12 @@ Parameters:
     Description: API throttling burst limit
     Default: 20
     
+  BucketStackName:
+    Type: String
+    Description: Name of the bucket stack to import values from
+    Default: portfolio-bucket-local
+    
 Resources:
-        
-  # S3 Bucket for Lambda Code
-  LambdaCodeBucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
-    Properties:
-      VersioningConfiguration:
-        Status: Enabled
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-lambda-code-bucket
-        - Key: Environment
-          Value: !Ref Environment
 
   # Lambda IAM Role - shared by both Lambda functions
   LambdaExecutionRole:
@@ -62,14 +54,14 @@ Resources:
   # Contact Form Function
   ContactFormFunction:
     Type: AWS::Lambda::Function
-    DependsOn: LambdaCodeBucket
     Properties:
       FunctionName: !Sub ${AWS::StackName}-contact-form
       Handler: lambda_function.lambda_handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Runtime: python3.9
       Code:
-        S3Bucket: !Ref LambdaCodeBucket
+        S3Bucket: !ImportValue 
+          Fn::Sub: "${BucketStackName}-LambdaCodeBucketName"
         S3Key: contact-form.zip
       Timeout: 10
       MemorySize: 128
@@ -96,14 +88,14 @@ Resources:
   # Link Selection Function
   LinkSelectionFunction:
     Type: AWS::Lambda::Function
-    DependsOn: LambdaCodeBucket
     Properties:
       FunctionName: !Sub ${AWS::StackName}-link-selection
       Handler: lambda_function.lambda_handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Runtime: python3.9
       Code:
-        S3Bucket: !Ref LambdaCodeBucket
+        S3Bucket: !ImportValue 
+          Fn::Sub: "${BucketStackName}-LambdaCodeBucketName"
         S3Key: link-selection.zip
       Timeout: 10
       MemorySize: 128
@@ -255,8 +247,14 @@ Resources:
         - !Ref LambdaExecutionRole
         
 Outputs:
-  LambdaCodeBucketName:
-    Description: Name of the S3 bucket containing Lambda code
-    Value: !Ref LambdaCodeBucket
+  ApiEndpoint:
+    Description: URL of the API Gateway endpoint
+    Value: !Sub https://${PortfolioApi}.execute-api.${AWS::Region}.amazonaws.com/
     Export:
-      Name: !Sub ${AWS::StackName}-LambdaCodeBucketName
+      Name: !Sub ${AWS::StackName}-ApiEndpoint
+      
+  ApiMappingPath:
+    Description: Path mapping for the API on the custom domain
+    Value: !Sub v1-${Environment}
+    Export:
+      Name: !Sub ${AWS::StackName}-ApiMappingPath
