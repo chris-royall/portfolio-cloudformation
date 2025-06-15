@@ -24,27 +24,6 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
-  # S3 Bucket for React App (https://github.com/chris-royall/portfolio-reactapp)
-  ReactCodeBucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
-    Properties:
-      VersioningConfiguration:
-        Status: Enabled
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: false
-        BlockPublicPolicy: false
-        IgnorePublicAcls: false
-        RestrictPublicBuckets: false
-      WebsiteConfiguration:
-        IndexDocument: index.html
-        ErrorDocument: index.html
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-react-code-bucket
-        - Key: Environment
-          Value: !Ref Environment
-
 Outputs:
   LambdaCodeBucketName:
     Description: Name of the S3 bucket containing Lambda code
@@ -52,14 +31,3 @@ Outputs:
     Export:
       Name: !Sub ${AWS::StackName}-LambdaCodeBucketName
   
-  ReactCodeBucketName:
-    Description: Name of the S3 bucket containing React app code
-    Value: !Ref ReactCodeBucket
-    Export:
-      Name: !Sub ${AWS::StackName}-ReactCodeBucketName
-  
-  ReactCodeBucketWebsiteURL:
-    Description: URL for the S3 website hosting the React app
-    Value: !GetAtt ReactCodeBucket.WebsiteURL
-    Export:
-      Name: !Sub ${AWS::StackName}-ReactCodeBucketWebsiteURL
