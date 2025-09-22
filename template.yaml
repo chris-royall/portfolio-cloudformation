@@ -258,3 +258,15 @@ Outputs:
     Value: !Sub v1-${Environment}
     Export:
       Name: !Sub ${AWS::StackName}-ApiMappingPath
+      
+  ContactFormFunction:
+    Description: Name of the Contact Form Lambda function
+    Value: !Ref ContactFormFunction
+    Export:
+      Name: !Sub ${AWS::StackName}-ContactFormFunction
+      
+  LinkSelectionFunction:
+    Description: Name of the Link Selection Lambda function
+    Value: !Ref LinkSelectionFunction
+    Export:
+      Name: !Sub ${AWS::StackName}-LinkSelectionFunction
