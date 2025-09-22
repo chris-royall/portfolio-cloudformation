@@ -19,17 +19,18 @@ The frontend application for this portfolio is available at [https://github.com/
 
 ```
 portfolio-cloudformation/
+├── .github/
+│   └── workflows/
+│       └── deploy.yml   # GitHub Actions deployment workflow
 ├── template.yaml        # Main CloudFormation template with API Gateway, Lambda functions
-├── bucket-template.yaml # Template for creating the S3 bucket for Lambda code
 ├── lambda/              # Lambda function code
 │   ├── contact-form/    # Contact form Lambda function
 │   │   └── lambda_function.py
 │   ├── link-selection/  # Link selection Lambda function
 │   │   └── lambda_function.py
-│   ├── contact-form.zip # Packaged contact form Lambda code
-│   └── link-selection.zip # Packaged link selection Lambda code
+
 ├── deploy.sh            # Script to deploy CloudFormation stack
-└── package.sh           # Script to package Lambda functions
+└── README.md            # Project documentation
 ```
 
 ## Architecture
@@ -46,8 +47,6 @@ This project deploys the following AWS resources:
    - Contact Form Function - Processes contact form submissions and sends emails via SES
    - Link Selection Function - Handles link selection requests and logs user interactions
 
-3. **S3 Bucket** - Stores Lambda function code packages with versioning enabled
-
 4. **Custom Domain Mapping** - Maps the API to a custom domain at the `/v1` path
 
 5. **IAM Roles and Policies**:
@@ -58,60 +57,27 @@ This project deploys the following AWS resources:
 
 ## Deployment Strategy
 
-This project uses a two-stage deployment approach to ensure reliable infrastructure provisioning:
+This project uses a single CloudFormation template deployment approach:
 
-1. **S3 Bucket Deployment**:
-   - First deploys a separate CloudFormation stack for the S3 bucket
-   - The bucket is used to store Lambda function code packages
-
-2. **Main Stack Deployment**:
-   - Lambda code is packaged into ZIP files
-   - The ZIP files are uploaded to the S3 bucket
-   - The main CloudFormation stack is deployed with all resources (API Gateway, Lambda functions, etc.)
+1. **CloudFormation Deployment**:
+   - The CloudFormation template deploys all infrastructure (API Gateway, Lambda functions, IAM roles)
+   - Lambda functions use inline code deployment
+   - All resources are created in a single stack deployment
 
 This approach provides several benefits:
-- Resolves circular dependency issues (Lambda functions need the S3 bucket to exist)
-- Ensures Lambda code is available before deploying the functions
-- Maintains proper resource creation order
-- Simplifies updates and modifications to the infrastructure
+- Simple single-template deployment
+- No external dependencies
+- Fast deployment process
+- Self-contained infrastructure
 
 ## Deployment
-
-### Manual Deployment
-
-Deploy the CloudFormation stack manually:
-```bash
-# Make the scripts executable
-chmod +x deploy.sh package.sh
-```
-```bash
-# Deploy to local environment (default)
-./deploy.sh
-```
-```bash
-# Deploy to production environment
-./deploy.sh --environment prod
-```
-
-The `deploy.sh` script handles the complete deployment process:
-1. Packages Lambda functions into ZIP files using `package.sh`
-2. Deploys the S3 bucket CloudFormation stack
-3. Uploads Lambda code to the S3 bucket
-4. Deploys the main CloudFormation stack with all resources
-5. Verifies the deployment status
-
-Each environment (local or prod) will have its own unique API endpoint:
-- Local: `https://api.chrisroyall.com/v1-local/...`
-- Production: `https://api.chrisroyall.com/v1-prod/...`
-
-This allows both environments to coexist using the same custom domain name.
 
 ### GitHub Actions Deployment
 
 This project is configured for manual deployment using GitHub Actions. The workflow:
 1. Checks out the code
-2. Sets up AWS credentials using OIDC
-3. Packages Lambda functions
+2. Sets up AWS credentials using stored secrets
+3. Makes deployment scripts executable
 4. Deploys the CloudFormation stack to prod environment
 
 ## API Endpoints
