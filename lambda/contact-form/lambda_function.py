@@ -20,11 +20,12 @@ def lambda_handler(event, context):
     # Log full event information
     logger.info(f"[{correlation_id}] Full event received: {json.dumps(event, default=str)}")
     
-    logger.info(f"[{correlation_id}] Contact form request started", extra={
+    logger.debug(json.dumps({
         'correlation_id': correlation_id,
+        'message': 'Contact form request started',
         'request_id': context.aws_request_id,
         'function_name': context.function_name
-    })
+    }))
     
     try:
         # Parse the request body
@@ -40,11 +41,12 @@ def lambda_handler(event, context):
         
         # Validate required fields
         if not email or '@' not in email:
-            logger.warning(f"[{correlation_id}] Invalid email validation failed", extra={
+            logger.warning(json.dumps({
                 'correlation_id': correlation_id,
+                'message': 'Invalid email validation failed',
                 'email_provided': bool(email),
                 'validation_error': 'invalid_email'
-            })
+            }))
             return {
                 'statusCode': 400,
                 'headers': {
@@ -57,10 +59,11 @@ def lambda_handler(event, context):
             }
         
         if not message:
-            logger.warning(f"[{correlation_id}] Message validation failed", extra={
+            logger.warning(json.dumps({
                 'correlation_id': correlation_id,
+                'message': 'Message validation failed',
                 'validation_error': 'empty_message'
-            })
+            }))
             return {
                 'statusCode': 400,
                 'headers': {
@@ -73,18 +76,20 @@ def lambda_handler(event, context):
             }
         
         # Send email using SES
-        logger.info(f"[{correlation_id}] Sending email", extra={
+        logger.debug(json.dumps({
             'correlation_id': correlation_id,
+            'message': 'Sending email',
             'has_name': bool(name and name != 'No name provided'),
             'email_domain': email.split('@')[1] if '@' in email else 'unknown'
-        })
+        }))
         
         send_email(name, email, message, correlation_id)
         
-        logger.info(f"[{correlation_id}] Contact form processed successfully", extra={
+        logger.debug(json.dumps({
             'correlation_id': correlation_id,
+            'message': 'Contact form processed successfully',
             'status': 'success'
-        })
+        }))
         
         return {
             'statusCode': 200,
@@ -98,11 +103,12 @@ def lambda_handler(event, context):
         }
         
     except Exception as e:
-        logger.error(f"[{correlation_id}] Error processing contact form", extra={
+        logger.error(json.dumps({
             'correlation_id': correlation_id,
+            'message': 'Error processing contact form',
             'error_type': type(e).__name__,
             'error_message': str(e)
-        }, exc_info=True)
+        }), exc_info=True)
         return {
             'statusCode': 500,
             'headers': {
@@ -168,16 +174,18 @@ def send_email(name, email, message, correlation_id):
             },
             ReplyToAddresses=[email],
         )
-        logger.info(f"[{correlation_id}] Email sent successfully", extra={
+        logger.info(json.dumps({
             'correlation_id': correlation_id,
+            'message': 'Email sent successfully',
             'ses_message_id': response['MessageId'],
             'recipient': RECIPIENT
-        })
+        }))
         return True
     except ClientError as e:
-        logger.error(f"[{correlation_id}] SES error occurred", extra={
+        logger.error(json.dumps({
             'correlation_id': correlation_id,
+            'message': 'SES error occurred',
             'error_code': e.response['Error']['Code'],
             'error_message': e.response['Error']['Message']
-        })
+        }))
         raise

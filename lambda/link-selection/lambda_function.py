@@ -16,10 +16,11 @@ def lambda_handler(event, context):
     
     # Check for OPTIONS request
     if event.get('httpMethod') == 'OPTIONS':
-        logger.info(f"[{correlation_id}] CORS preflight request", extra={
+        logger.debug(json.dumps({
             'correlation_id': correlation_id,
+            'message': 'CORS preflight request',
             'request_type': 'OPTIONS'
-        })
+        }))
         return {
             'statusCode': 200,
             'headers': {
@@ -30,11 +31,12 @@ def lambda_handler(event, context):
             'body': '',
         }
 
-    logger.info(f"[{correlation_id}] Link selection request started", extra={
+    logger.debug(json.dumps({
         'correlation_id': correlation_id,
+        'message': 'Link selection request started',
         'request_id': context.aws_request_id,
         'function_name': context.function_name
-    })
+    }))
     
     try:
         # Parse request body
@@ -42,10 +44,11 @@ def lambda_handler(event, context):
         button_clicked = body.get('buttonClicked')
         
         if not button_clicked:
-            logger.warning(f"[{correlation_id}] Missing buttonClicked field", extra={
+            logger.error(json.dumps({
                 'correlation_id': correlation_id,
+                'message': 'Missing buttonClicked field',
                 'validation_error': 'missing_button_clicked'
-            })
+            }))
             return {
                 'statusCode': 400,
                 'headers': {
@@ -54,22 +57,18 @@ def lambda_handler(event, context):
                 },
                 'body': json.dumps({'message': 'Missing buttonClicked field'})
             }
-        
-        # Extract request context
-        user_agent = event.get('headers', {}).get('User-Agent', 'unknown')
-        source_ip = event.get('requestContext', {}).get('identity', {}).get('sourceIp', 'unknown')
-        
-        logger.info(f"[{correlation_id}] Link clicked", extra={
+                
+        logger.info(json.dumps({
             'correlation_id': correlation_id,
+            'message': 'Link clicked',
             'button_clicked': button_clicked,
-            'user_agent': user_agent,
-            'source_ip': source_ip,
             'timestamp': datetime.now().isoformat()
-        })
-        logger.info(f"[{correlation_id}] Link selection processed successfully", extra={
+        }))
+        logger.debug(json.dumps({
             'correlation_id': correlation_id,
+            'message': 'Link selection processed successfully',
             'status': 'success'
-        })
+        }))
         
         return {
             'statusCode': 200,
@@ -80,11 +79,12 @@ def lambda_handler(event, context):
             'body': json.dumps({'message': 'Log Recorded'})
         }
     except Exception as e:
-        logger.error(f"[{correlation_id}] Error processing link selection", extra={
+        logger.error(json.dumps({
             'correlation_id': correlation_id,
+            'message': 'Error processing link selection',
             'error_type': type(e).__name__,
             'error_message': str(e)
-        }, exc_info=True)
+        }), exc_info=True)
         return {
             'statusCode': 500,
             'headers': {
