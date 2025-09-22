@@ -1,9 +1,10 @@
 import json
 import logging
 import boto3
+import uuid
 from botocore.exceptions import ClientError
 
-# Configure logging
+# Configure logging for Lambda
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -14,7 +15,16 @@ def lambda_handler(event, context):
     """
     Contact Form Lambda function handler
     """
-    logger.info(f"Contact Form Lambda function invoked with event: {json.dumps(event)}")
+    correlation_id = str(uuid.uuid4())
+    
+    # Log full event information
+    logger.info(f"[{correlation_id}] Full event received: {json.dumps(event, default=str)}")
+    
+    logger.info(f"[{correlation_id}] Contact form request started", extra={
+        'correlation_id': correlation_id,
+        'request_id': context.aws_request_id,
+        'function_name': context.function_name
+    })
     
     try:
         # Parse the request body
@@ -30,6 +40,11 @@ def lambda_handler(event, context):
         
         # Validate required fields
         if not email or '@' not in email:
+            logger.warning(f"[{correlation_id}] Invalid email validation failed", extra={
+                'correlation_id': correlation_id,
+                'email_provided': bool(email),
+                'validation_error': 'invalid_email'
+            })
             return {
                 'statusCode': 400,
                 'headers': {
@@ -42,6 +57,10 @@ def lambda_handler(event, context):
             }
         
         if not message:
+            logger.warning(f"[{correlation_id}] Message validation failed", extra={
+                'correlation_id': correlation_id,
+                'validation_error': 'empty_message'
+            })
             return {
                 'statusCode': 400,
                 'headers': {
@@ -54,7 +73,18 @@ def lambda_handler(event, context):
             }
         
         # Send email using SES
-        send_email(name, email, message)
+        logger.info(f"[{correlation_id}] Sending email", extra={
+            'correlation_id': correlation_id,
+            'has_name': bool(name and name != 'No name provided'),
+            'email_domain': email.split('@')[1] if '@' in email else 'unknown'
+        })
+        
+        send_email(name, email, message, correlation_id)
+        
+        logger.info(f"[{correlation_id}] Contact form processed successfully", extra={
+            'correlation_id': correlation_id,
+            'status': 'success'
+        })
         
         return {
             'statusCode': 200,
@@ -68,7 +98,11 @@ def lambda_handler(event, context):
         }
         
     except Exception as e:
-        logger.error(f"Error processing contact form: {str(e)}")
+        logger.error(f"[{correlation_id}] Error processing contact form", extra={
+            'correlation_id': correlation_id,
+            'error_type': type(e).__name__,
+            'error_message': str(e)
+        }, exc_info=True)
         return {
             'statusCode': 500,
             'headers': {
@@ -80,7 +114,7 @@ def lambda_handler(event, context):
             })
         }
 
-def send_email(name, email, message):
+def send_email(name, email, message, correlation_id):
     """
     Send email using Amazon SES
     """
@@ -134,8 +168,16 @@ def send_email(name, email, message):
             },
             ReplyToAddresses=[email],
         )
-        logger.info(f"Email sent! Message ID: {response['MessageId']}")
+        logger.info(f"[{correlation_id}] Email sent successfully", extra={
+            'correlation_id': correlation_id,
+            'ses_message_id': response['MessageId'],
+            'recipient': RECIPIENT
+        })
         return True
     except ClientError as e:
-        logger.error(f"Error sending email: {e.response['Error']['Message']}")
+        logger.error(f"[{correlation_id}] SES error occurred", extra={
+            'correlation_id': correlation_id,
+            'error_code': e.response['Error']['Code'],
+            'error_message': e.response['Error']['Message']
+        })
         raise
