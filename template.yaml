@@ -24,15 +24,28 @@ Parameters:
     Type: Number
     Description: API throttling burst limit
     Default: 20
-    
-  BucketStackName:
-    Type: String
-    Description: Name of the bucket stack to import values from
-    Default: portfolio-bucket-local
-    
+        
 Resources:
 
-  # Lambda IAM Role - shared by both Lambda functions
+  # DynamoDB Table for Projects
+  ProjectsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-projects
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-projects
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Lambda IAM Role - shared by all Lambda functions
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -45,6 +58,25 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:Scan
+                  - dynamodb:Query
+                Resource: !GetAtt ProjectsTable.Arn
+        - PolicyName: SESAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ses:SendEmail
+                Resource: '*'
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-lambda-role
@@ -60,9 +92,13 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       Runtime: python3.9
       Code:
-        S3Bucket: !ImportValue 
-          Fn::Sub: "${BucketStackName}-LambdaCodeBucketName"
-        S3Key: contact-form.zip
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Placeholder function - update with make update-function')
+              }
       Timeout: 10
       MemorySize: 128
       Tags:
@@ -94,9 +130,13 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       Runtime: python3.9
       Code:
-        S3Bucket: !ImportValue 
-          Fn::Sub: "${BucketStackName}-LambdaCodeBucketName"
-        S3Key: link-selection.zip
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Placeholder function - update with make update-function')
+              }
       Timeout: 10
       MemorySize: 128
       Tags:
@@ -119,7 +159,48 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
-  # Combined API for both functions
+  # Projects Function
+  ProjectsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-projects
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.9
+      Environment:
+        Variables:
+          PROJECTS_TABLE: !Ref ProjectsTable
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Placeholder function - update with make update-function')
+              }
+      Timeout: 10
+      MemorySize: 128
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-projects
+        - Key: Environment
+          Value: !Ref Environment
+      # Add reserved concurrency to prevent function from being overwhelmed
+      ReservedConcurrentExecutions: 5
+
+  # Projects CloudWatch Log Group
+  ProjectsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${ProjectsFunction}
+      RetentionInDays: 7
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-projects-logs
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Combined API for all functions
   PortfolioApi:
     Type: AWS::ApiGatewayV2::Api
     Properties:
@@ -131,6 +212,7 @@ Resources:
         AllowHeaders:
           - Content-Type
         AllowMethods:
+          - GET
           - POST
         AllowOrigins:
           - 'http://localhost:5173'
@@ -146,7 +228,7 @@ Resources:
   # API Stage with throttling
   PortfolioApiStage:
     Type: AWS::ApiGatewayV2::Stage
-    DependsOn: [ContactFormRoute, LinkSelectionRoute]  # Ensure routes exist first
+    DependsOn: [ContactFormRoute, LinkSelectionRoute, ProjectsRoute]  # Ensure routes exist first
     Properties:
       ApiId: !Ref PortfolioApi
       StageName: "$default"
@@ -161,6 +243,10 @@ Resources:
           ThrottlingBurstLimit: 10
         # Route-specific throttling for link endpoint
         'POST /link':
+          ThrottlingRateLimit: 5
+          ThrottlingBurstLimit: 10
+        # Route-specific throttling for projects endpoint
+        'GET /projects':
           ThrottlingRateLimit: 5
           ThrottlingBurstLimit: 10
       Tags:
@@ -221,6 +307,33 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PortfolioApi}/*/POST/link
       
+  # Projects Route
+  ProjectsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref PortfolioApi
+      RouteKey: 'GET /projects'
+      Target: !Sub integrations/${ProjectsIntegration}
+
+  # Projects Integration
+  ProjectsIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref PortfolioApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ProjectsFunction.Arn}/invocations
+      PayloadFormatVersion: '2.0'
+      IntegrationMethod: POST
+
+  # Projects Lambda Permission
+  ProjectsPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ProjectsFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PortfolioApi}/*/GET/projects
+
   # API Mapping to existing custom domain
   PortfolioApiMapping:
     Type: AWS::ApiGatewayV2::ApiMapping
@@ -230,22 +343,7 @@ Resources:
       DomainName: !Ref ExistingApiDomainName
       Stage: "$default"
       ApiMappingKey: !Sub "v1-${Environment}"
-      
-  LambdaSESPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: LambdaSESPolicy
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Action:
-              - ses:SendEmail
-              - ses:SendRawEmail
-            Resource: '*'
-      Roles:
-        - !Ref LambdaExecutionRole
-        
+              
 Outputs:
   ApiEndpoint:
     Description: URL of the API Gateway endpoint
@@ -270,3 +368,15 @@ Outputs:
     Value: !Ref LinkSelectionFunction
     Export:
       Name: !Sub ${AWS::StackName}-LinkSelectionFunction
+
+  ProjectsFunction:
+    Description: Name of the Projects Lambda function
+    Value: !Ref ProjectsFunction
+    Export:
+      Name: !Sub ${AWS::StackName}-ProjectsFunction
+      
+  ProjectsTable:
+    Description: Name of the Projects DynamoDB table
+    Value: !Ref ProjectsTable
+    Export:
+      Name: !Sub ${AWS::StackName}-ProjectsTable

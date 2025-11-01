@@ -28,30 +28,52 @@ portfolio-cloudformation/
 │   │   └── lambda_function.py
 │   ├── link-selection/  # Link selection Lambda function
 │   │   └── lambda_function.py
-
+│   └── projects/        # Projects Lambda function
+│       └── lambda_function.py
 ├── deploy.sh            # Script to deploy CloudFormation stack
 └── README.md            # Project documentation
 ```
 
 ## Architecture
 
-![Architecture Diagram](portfolio-cloudformation_diagram.drawio.png)
+```mermaid
+graph TD
+    Frontend[Portfolio Frontend] --> API[API Gateway HTTP API]
+    
+    API -->|POST /contact| ContactLambda[Contact Form Lambda]
+    API -->|POST /link| LinkLambda[Link Selection Lambda]
+    API -->|GET /projects| ProjectsLambda[Projects Lambda]
+    
+    ContactLambda --> SES[Amazon SES]
+    ProjectsLambda --> DynamoDB[DynamoDB Table]
+    DynamoDB -->|Project Data| ProjectsLambda
+    ProjectsLambda -->|Project List| Frontend
+    
+    ContactLambda --> Logs[CloudWatch Logs]
+    LinkLambda --> Logs
+    ProjectsLambda --> Logs
+```
 
 This project deploys the following AWS resources:
 
 1. **API Gateway (HTTP API)** - A single API with multiple routes:
    - `POST /contact` - Endpoint for contact form submissions
    - `POST /link` - Endpoint for link selection functionality
+   - `GET /projects` - Endpoint for retrieving project data
 
 2. **Lambda Functions**:
    - Contact Form Function - Processes contact form submissions and sends emails via SES
    - Link Selection Function - Handles link selection requests and logs user interactions
+   - Projects Function - Retrieves project data from DynamoDB
+
+3. **DynamoDB Table** - Stores project information with dynamic content management
 
 4. **Custom Domain Mapping** - Maps the API to a custom domain at the `/v1` path
 
 5. **IAM Roles and Policies**:
    - Lambda execution role with basic execution permissions
    - SES permissions for the contact form Lambda function
+   - DynamoDB read permissions for the projects Lambda function
 
 6. **CloudWatch Logs** - Configured with 7-day retention period for Lambda function logs
 
@@ -80,34 +102,6 @@ This project is configured for manual deployment using GitHub Actions. The workf
 3. Makes deployment scripts executable
 4. Deploys the CloudFormation stack to prod environment
 
-## API Endpoints
-
-After deployment, the following endpoints will be available:
-
-- **Contact Form**:
-  - Local: `https://api.chrisroyall.com/v1-local/contact`
-  - Prod: `https://api.chrisroyall.com/v1-prod/contact`
-  - Method: POST
-  - Required fields: email, message
-  - Optional fields: name
-  - Response: 200 OK on success, appropriate error codes otherwise
-
-- **Link Selection**:
-  - Local: `https://api.chrisroyall.com/v1-local/link`
-  - Prod: `https://api.chrisroyall.com/v1-prod/link`
-  - Method: POST
-  - Required fields: buttonClicked
-  - Response: 200 OK on success, appropriate error codes otherwise
-
-## Parameters
-
-The template accepts the following parameters:
-
-- **Environment** - Deployment environment (local or prod)
-- **ExistingApiDomainName** - The custom domain name for the API (default: api.chrisroyall.com)
-- **ThrottlingRateLimit** - API throttling rate limit in requests per second (default: 10)
-- **ThrottlingBurstLimit** - API throttling burst limit (default: 20)
-
 ## Lambda Functions
 
 ### Contact Form Function
@@ -127,6 +121,14 @@ The Link Selection Function:
 - Implements CORS support for cross-origin requests
 - Provides simple analytics for portfolio website usage
 
+### Projects Function
+
+The Projects Function:
+- Retrieves project data from DynamoDB table
+- Returns projects sorted by sort_id for consistent ordering
+- Implements proper error handling and CORS support
+- Enables dynamic content management for portfolio projects
+
 ## Security Considerations
 
 This project implements several security measures:
@@ -140,10 +142,14 @@ This project implements several security measures:
    - Principle of least privilege for IAM permissions
    - Input validation for all user-provided data
 
-3. **CORS Configuration**:
+3. **DynamoDB Security**:
+   - Least privilege access for Lambda functions to DynamoDB
+   - Pay-per-request billing mode to optimize costs
+
+4. **CORS Configuration**:
    - Properly configured CORS headers for cross-origin requests
    - OPTIONS method support for preflight requests
 
-4. **Error Handling**:
+5. **Error Handling**:
    - Proper error handling to prevent information leakage
    - Appropriate HTTP status codes for different error conditions

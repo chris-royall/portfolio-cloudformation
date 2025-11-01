@@ -68,9 +68,10 @@ echo "Environment: $ENVIRONMENT"
 echo "Packaging Lambda functions..."
 cd lambda/contact-form && zip -r ../contact-form.zip . && cd ../..
 cd lambda/link-selection && zip -r ../link-selection.zip . && cd ../..
+cd lambda/projects && zip -r ../projects.zip . && cd ../..
 
 # Check if the ZIP files were created successfully
-if [ ! -f "lambda/contact-form.zip" ] || [ ! -f "lambda/link-selection.zip" ]; then
+if [ ! -f "lambda/contact-form.zip" ] || [ ! -f "lambda/link-selection.zip" ] || [ ! -f "lambda/projects.zip" ]; then
     echo "Error: Lambda ZIP files not created properly."
     exit 1
 fi
@@ -107,10 +108,12 @@ if [ "$?" -eq 0 ]; then
     # Get function names from CloudFormation stack outputs
     CONTACT_FORM_FUNCTION=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION $PROFILE_ARG --query 'Stacks[0].Outputs[?OutputKey==`ContactFormFunction`].OutputValue' --output text)
     LINK_SELECTION_FUNCTION=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION $PROFILE_ARG --query 'Stacks[0].Outputs[?OutputKey==`LinkSelectionFunction`].OutputValue' --output text)
+    PROJECTS_FUNCTION=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION $PROFILE_ARG --query 'Stacks[0].Outputs[?OutputKey==`ProjectsFunction`].OutputValue' --output text)
     
     # Update Lambda function code
     aws lambda update-function-code --function-name "$CONTACT_FORM_FUNCTION" --zip-file fileb://lambda/contact-form.zip --region $REGION $PROFILE_ARG > /dev/null
     aws lambda update-function-code --function-name "$LINK_SELECTION_FUNCTION" --zip-file fileb://lambda/link-selection.zip --region $REGION $PROFILE_ARG > /dev/null
+    aws lambda update-function-code --function-name "$PROJECTS_FUNCTION" --zip-file fileb://lambda/projects.zip --region $REGION $PROFILE_ARG > /dev/null
     
     echo "Deployment completed successfully."
     exit 0
