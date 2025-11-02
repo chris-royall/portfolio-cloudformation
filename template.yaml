@@ -24,6 +24,11 @@ Parameters:
     Type: Number
     Description: API throttling burst limit
     Default: 20
+    
+  ExistingAlarmsTopicName:
+    Type: String
+    Description: Name of existing SNS topic for alarms
+    Default: Alarms
         
 Resources:
 
@@ -343,6 +348,171 @@ Resources:
       DomainName: !Ref ExistingApiDomainName
       Stage: "$default"
       ApiMappingKey: !Sub "v1-${Environment}"
+
+  # CloudWatch Alarm for Contact Form Function Errors
+  ContactFormErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-contact-form-errors
+      AlarmDescription: Alarm for Contact Form Lambda function errors
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ContactFormFunction
+      AlarmActions:
+        - !Sub arn:aws:sns:eu-west-2:${AWS::AccountId}:${ExistingAlarmsTopicName}
+
+  # CloudWatch Alarm for Link Selection Function Errors
+  LinkSelectionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-link-selection-errors
+      AlarmDescription: Alarm for Link Selection Lambda function errors
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref LinkSelectionFunction
+      AlarmActions:
+        - !Sub arn:aws:sns:eu-west-2:${AWS::AccountId}:${ExistingAlarmsTopicName}
+
+  # CloudWatch Alarm for Projects Function Errors
+  ProjectsErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-projects-errors
+      AlarmDescription: Alarm for Projects Lambda function errors
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ProjectsFunction
+      AlarmActions:
+        - !Sub arn:aws:sns:eu-west-2:${AWS::AccountId}:${ExistingAlarmsTopicName}
+
+  # Metric Filters for Logged Errors
+  ContactFormLogErrorFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref ContactFormLogGroup
+      FilterPattern: "ERROR"
+      MetricTransformations:
+        - MetricNamespace: Portfolio/Lambda
+          MetricName: ContactFormLoggedErrors
+          MetricValue: "1"
+          DefaultValue: 0
+
+  LinkSelectionLogErrorFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref LinkSelectionLogGroup
+      FilterPattern: "ERROR"
+      MetricTransformations:
+        - MetricNamespace: Portfolio/Lambda
+          MetricName: LinkSelectionLoggedErrors
+          MetricValue: "1"
+          DefaultValue: 0
+
+  ProjectsLogErrorFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref ProjectsLogGroup
+      FilterPattern: "ERROR"
+      MetricTransformations:
+        - MetricNamespace: Portfolio/Lambda
+          MetricName: ProjectsLoggedErrors
+          MetricValue: "1"
+          DefaultValue: 0
+
+  # Alarms for Logged Errors
+  ContactFormLoggedErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-contact-form-logged-errors
+      AlarmDescription: Alarm for Contact Form Lambda logged errors
+      MetricName: ContactFormLoggedErrors
+      Namespace: Portfolio/Lambda
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Sub arn:aws:sns:eu-west-2:${AWS::AccountId}:${ExistingAlarmsTopicName}
+
+  LinkSelectionLoggedErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-link-selection-logged-errors
+      AlarmDescription: Alarm for Link Selection Lambda logged errors
+      MetricName: LinkSelectionLoggedErrors
+      Namespace: Portfolio/Lambda
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Sub arn:aws:sns:eu-west-2:${AWS::AccountId}:${ExistingAlarmsTopicName}
+
+  ProjectsLoggedErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-projects-logged-errors
+      AlarmDescription: Alarm for Projects Lambda logged errors
+      MetricName: ProjectsLoggedErrors
+      Namespace: Portfolio/Lambda
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Sub arn:aws:sns:eu-west-2:${AWS::AccountId}:${ExistingAlarmsTopicName}
+
+  # Metric Filter for Button Clicked events
+  LinkSelectionButtonClickedFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref LinkSelectionLogGroup
+      FilterPattern: '{ $.button_clicked != "Page Loaded" }'
+      MetricTransformations:
+        - MetricNamespace: Portfolio/Traffic
+          MetricName: ButtonClickedEvents
+          MetricValue: "1"
+          DefaultValue: 0
+
+  # Alarm for Button Clicked events
+  LinkSelectionButtonClickedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-button-clicked-alarm
+      AlarmDescription: Alarm when Button Clicked events are detected, expect "Page Loaded"
+      MetricName: ButtonClickedEvents
+      Namespace: Portfolio/Traffic
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Sub arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${ExistingAlarmsTopicName}
               
 Outputs:
   ApiEndpoint:
