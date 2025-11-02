@@ -13,6 +13,7 @@ The frontend application for this portfolio is available at [https://github.com/
 - [API Endpoints](#api-endpoints)
 - [Parameters](#parameters)
 - [Lambda Functions](#lambda-functions)
+- [Monitoring and Alerting](#monitoring-and-alerting)
 - [Security Considerations](#security-considerations)
 
 ## Project Structure
@@ -52,6 +53,8 @@ graph TD
     ContactLambda --> Logs[CloudWatch Logs]
     LinkLambda --> Logs
     ProjectsLambda --> Logs
+    Logs -->|Errors| Alarms[Metrics/Alarms]
+    Alarms --> SNS[SNS Alerts]
 ```
 
 This project deploys the following AWS resources:
@@ -76,6 +79,10 @@ This project deploys the following AWS resources:
    - DynamoDB read permissions for the projects Lambda function
 
 6. **CloudWatch Logs** - Configured with 7-day retention period for Lambda function logs
+
+7. **CloudWatch Alarms** - Error monitoring and alerting for Lambda functions
+
+8. **Metric Filters** - Custom metrics for error tracking
 
 ## Deployment Strategy
 
@@ -128,6 +135,27 @@ The Projects Function:
 - Returns projects sorted by sort_id for consistent ordering
 - Implements proper error handling and CORS support
 - Enables dynamic content management for portfolio projects
+
+## Monitoring and Alerting
+
+The project includes comprehensive monitoring and alerting:
+
+### CloudWatch Alarms
+
+1. **Lambda Error Alarms** - Monitor function errors for all three Lambda functions:
+   - Contact Form errors
+   - Link Selection errors
+   - Projects function errors
+   - Triggers when ≥1 error occurs within 1 hour
+
+2. **Logged Error Alarms** - Monitor application-level errors in CloudWatch logs:
+   - Detects "ERROR" patterns in Lambda function logs
+   - Separate alarms for each function
+   - Triggers when ≥1 logged error occurs within 1 hour
+
+### SNS Integration
+
+All alarms are configured to send notifications to an existing SNS topic (`Alarms`) for immediate alerting when issues occur.
 
 ## Security Considerations
 
