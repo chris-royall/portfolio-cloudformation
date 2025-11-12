@@ -95,7 +95,7 @@ Resources:
       FunctionName: !Sub ${AWS::StackName}-contact-form
       Handler: lambda_function.lambda_handler
       Role: !GetAtt LambdaExecutionRole.Arn
-      Runtime: python3.9
+      Runtime: python3.13
       Code:
         ZipFile: |
           import json
@@ -133,7 +133,7 @@ Resources:
       FunctionName: !Sub ${AWS::StackName}-link-selection
       Handler: lambda_function.lambda_handler
       Role: !GetAtt LambdaExecutionRole.Arn
-      Runtime: python3.9
+      Runtime: python3.13
       Code:
         ZipFile: |
           import json
@@ -171,7 +171,7 @@ Resources:
       FunctionName: !Sub ${AWS::StackName}-projects
       Handler: lambda_function.lambda_handler
       Role: !GetAtt LambdaExecutionRole.Arn
-      Runtime: python3.9
+      Runtime: python3.13
       Environment:
         Variables:
           PROJECTS_TABLE: !Ref ProjectsTable
